@@ -1,0 +1,30 @@
+
+/Connector/queries
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+build/
+dist/
+
+# --- PyCharm / IDE ---
+.idea/
+.vscode/
+*.swp
+*.bak
+
+# --- Data & Secrets ---
+.env
+*.csv
+*.xlsx
+*.parquet
+*.sqlite
+*.log
+SECRET
+
+# --- OS ---
+.DS_Store
+Thumbs.db
