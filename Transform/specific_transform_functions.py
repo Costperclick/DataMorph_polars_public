@@ -52,7 +52,7 @@ def completion_and_fields_snapshot(df: pl.DataFrame, timestamp_date_str: str) ->
 # --------------- REVIEWS ------------------
 # ==========================================
 
-def compute_reviews_response_rate_snapshot(df: pl.DataFrame, timestamp_date_str: str) -> pl.DataFrame:
+def compute_reviews_response_rate_snapshot(df: pl.DataFrame, timestamp_date_str:str='01-01-2026') -> pl.DataFrame:
     """
     Builds a snapshot of the amount of reviews, amount of replied reviews, review response rate by shop
 
