@@ -71,7 +71,7 @@ ORDER BY lmt.shop_label, gppr.date;
 # Recupère le snapshot de completion
 completion_metrics = Connector(SSHCredentials(), AnalyticsCredentials()).extract_database(query_completion)
 completion_df = completion_metrics.filter(
-    pl.col('shop_status') == 'actif'
+    pl.col('shop_status').is_not_null()
 ).select(
     pl.col('period'),
     pl.col('shop_id'),
@@ -127,3 +127,68 @@ optimhome_final_merge = completion_df.join(
 )
 
 optimhome_final_merge.write_csv('optimhome_final_merge.csv')
+
+optimhome_pre_compute_df = optimhome_final_merge.with_columns(
+    pl.when((pl.col('rating') < 4.2) & (pl.col('total_reviews') < 50))
+      .then(pl.lit("orange"))
+    .when((pl.col('rating') < 4.2) & (pl.col('total_reviews') >= 50))
+      .then(pl.lit("red"))
+    .when((pl.col('rating') >= 4.2) & (pl.col('total_reviews') < 50))
+      .then(pl.lit("grey"))
+    .otherwise(pl.lit("green"))
+    .alias("color_category")
+)
+
+optimhome_pre_compute_df = optimhome_pre_compute_df.with_columns([
+    pl.col('impressions_total').cast(pl.Float64),
+    pl.col('website_clicks').cast(pl.Float64),
+    pl.col('call_clicks').cast(pl.Float64),
+    pl.col('actions_total').cast(pl.Float64),
+    # Crée une colonne scalaire pour le taux de réponse
+    ((pl.when(pl.col('total_reviews') > 0)
+         .then(pl.col('answered_reviews') / pl.col('total_reviews') * 100)
+         .otherwise(0))
+     .round(2)
+     .alias("taux_de_reponse")
+    )
+])
+
+# 2️⃣ Agrégations par période
+optimhome_full_compute = optimhome_pre_compute_df.filter(
+    pl.col('shop_status') == "actif",
+).with_columns([
+    pl.col('rating').cast(pl.Float64),
+    pl.col('completion_rate').cast(pl.Float64),
+    pl.col('total_reviews').cast(pl.Float64),
+    pl.col('taux_de_reponse').cast(pl.Float64),
+    pl.col('impressions_total').cast(pl.Float64),
+    pl.col('actions_total').cast(pl.Float64),
+    pl.col('website_clicks').cast(pl.Float64),
+    pl.col('call_clicks').cast(pl.Float64)
+]).group_by('period').agg(
+    (pl.col('shop_status') == "actif").cast(pl.Int32).sum().alias("Nombre de shops actifs"),
+    pl.mean('completion_rate').round(2).alias('taux de complétion moyen'),
+    pl.mean('total_reviews').round(2).alias("Nombre d'avis moyen"),
+    pl.mean('rating').round(2).alias("Note moyenne"),
+    pl.mean('taux_de_reponse').round(2).alias('taux de réponse'),
+    # Comptages conditionnels
+    (pl.col('color_category') == "red").cast(pl.Int32).sum().alias('Nb de fiche dans la zone rouge'),
+    (pl.col('color_category') == "orange").cast(pl.Int32).sum().alias('Nb de fiche dans la zone orange'),
+    (pl.col('color_category') == "grey").cast(pl.Int32).sum().alias('Nb de fiche dans la zone grise'),
+    (pl.col('color_category') == "green").cast(pl.Int32).sum().alias('Nb de fiche dans la zone verte'),
+    # Actions et clics
+    pl.sum('impressions_total').alias("Nb d'impressions globales"),
+    pl.mean('impressions_total').round(2).alias("Nb d'impressions moyen"),
+    pl.sum('actions_total').alias("Nb d'actions globales"),
+    pl.mean('actions_total').round(2).alias("Nb d'actions moyen"),
+    pl.sum('website_clicks').alias("Nb de clic vers site web"),
+    pl.mean('website_clicks').round(2).alias("Nb moyen de clic vers site web"),
+    pl.sum('call_clicks').alias("Nombre de clic sur appel"),
+    pl.mean('call_clicks').round(2).alias("Nombre moyen de clic sur appel"),
+)
+for name, dtype in zip(optimhome_full_compute.columns, optimhome_full_compute.dtypes):
+    print(name, dtype)
+
+
+print(optimhome_full_compute)
+optimhome_full_compute.write_csv('test_optimhome_full_compute.csv')
