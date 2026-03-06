@@ -11,7 +11,7 @@ from Transform.utils_transform_functions import timestamp_dataframe
 # ========================================
 
 def completion_and_fields_snapshot(df: pl.DataFrame, timestamp_date_str: str) -> pl.DataFrame:
-    df = (df.pipe(timestamp_dataframe, date_str='01-01-2026')
+    df = (df.pipe(timestamp_dataframe, timestamp_date_str)
     .filter(
         pl.col("shop_id").is_not_null()
     ).select(

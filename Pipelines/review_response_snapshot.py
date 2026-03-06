@@ -30,4 +30,4 @@ def pipeline(timestamp_date_str: str):
 
 
 if __name__ == '__main__':
-    pipeline('01-01-2026')
+    pipeline('01-03-2026')
